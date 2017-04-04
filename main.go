@@ -49,7 +49,7 @@ func main() {
 	// You can generate a keypair with 'ssh-keygen -t rsa'
 	privateBytes, err := ioutil.ReadFile(*privateKey)
 	if err != nil {
-		log.Fatal(fmt.Sprintf("Failed to load private key (%s)", *privateKey))
+		log.Fatal(fmt.Sprintf("Failed to load private key (%s): %s", *privateKey, err))
 	}
 
 	private, err := ssh.ParsePrivateKey(privateBytes)
