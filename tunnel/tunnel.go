@@ -13,11 +13,11 @@ import (
 type Endpoint struct {
 	Host string
 	User string
-	Port int
+	Port string
 }
 
 func (endpoint *Endpoint) String() string {
-	return fmt.Sprintf("%s:%d", endpoint.Host, endpoint.Port)
+	return fmt.Sprintf("%s:%s", endpoint.Host, endpoint.Port)
 }
 
 type SSHtunnel struct {
