@@ -1,11 +1,16 @@
 package main
 
 // Originally from: https://gist.github.com/jpillora/b480fde82bff51a06238
+// Port forwarding from: https://gist.github.com/ir4y/11146415
+// and https://gist.github.com/sohlich/d8fb946f30a38d5a19f960a03ec1d740
 
 import (
 	"encoding/binary"
 	"flag"
 	"fmt"
+	"github.com/kr/pty"
+	"github.com/smithclay/tiny-ssh/tunnel"
+	"golang.org/x/crypto/ssh"
 	"io"
 	"io/ioutil"
 	"log"
@@ -14,15 +19,16 @@ import (
 	"sync"
 	"syscall"
 	"unsafe"
-
-	"github.com/kr/pty"
-	"golang.org/x/crypto/ssh"
 )
 
 var (
 	sshPort    = flag.String("port", "2200", "Port number to listen on")
 	privateKey = flag.String("i", "id_rsa", "Path to RSA private key")
 )
+
+func hostKeyCallback(hostname string, remote net.Addr, key ssh.PublicKey) error {
+	return nil
+}
 
 func main() {
 	flag.Parse()
@@ -64,6 +70,39 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to listen on %s (%s)", *sshPort, err)
 	}
+	// Create SSH Tunnel
+	localEndpoint := &tunnel.Endpoint{
+		Host: "127.0.0.1",
+		Port: 3000,
+	}
+
+	serverEndpoint := &tunnel.Endpoint{
+		Host: "52.42.5.62",
+		Port: 22,
+	}
+
+	remoteEndpoint := &tunnel.Endpoint{
+		Host: "127.0.0.1",
+		Port: 5001,
+	}
+
+	sshTunnelConfig := &ssh.ClientConfig{
+		User: "ec2-user",
+		Auth: []ssh.AuthMethod{
+			tunnel.SSHAgent(*privateKey),
+		},
+		HostKeyCallback: hostKeyCallback,
+	}
+	t := &tunnel.SSHtunnel{
+		Config: sshTunnelConfig,
+		Local:  localEndpoint,
+		Server: serverEndpoint,
+		Remote: remoteEndpoint,
+	}
+	go t.Start()
+	/*if terr != nil {
+		log.Fatal(fmt.Sprintf("Error creating tunnel: %s", terr))
+	}*/
 
 	// Accept all connections
 	log.Print(fmt.Sprintf("Listening on %s...", *sshPort))
@@ -86,6 +125,7 @@ func main() {
 		// Accept all channels
 		go handleChannels(chans)
 	}
+
 }
 
 func handleChannels(chans <-chan ssh.NewChannel) {
