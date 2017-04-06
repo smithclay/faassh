@@ -11,13 +11,8 @@ import (
 )
 
 type Endpoint struct {
-	Host string
-	User string
-	Port string
-}
-
-func (endpoint *Endpoint) String() string {
-	return fmt.Sprintf("%s:%s", endpoint.Host, endpoint.Port)
+	HostPort string
+	User     string
 }
 
 type SSHtunnel struct {
@@ -29,15 +24,15 @@ type SSHtunnel struct {
 }
 
 func (t *SSHtunnel) Start() error {
-	log.Printf("Creating tunnel to %v...", t.Server.String())
-	conn, err := ssh.Dial("tcp", t.Server.String(), t.Config)
+	log.Printf("Creating tunnel to %v...", t.Server.HostPort)
+	conn, err := ssh.Dial("tcp", t.Server.HostPort, t.Config)
 	if err != nil {
 		log.Fatalf("unable to connect to remote server: %v", err)
 	}
 	defer conn.Close()
 
-	log.Printf("Registering tcp forward on %v", t.Remote.String())
-	remoteListener, err := conn.Listen("tcp", t.Remote.String())
+	log.Printf("Registering tcp forward on %v", t.Remote.HostPort)
+	remoteListener, err := conn.Listen("tcp", t.Remote.HostPort)
 	if err != nil {
 		log.Fatalf("unable to register tcp forward: %v", err)
 	}
@@ -53,8 +48,8 @@ func (t *SSHtunnel) Start() error {
 }
 
 func (t *SSHtunnel) forward(remoteConn net.Conn) {
-	log.Printf("Registering local tcp forward on %v", t.Local.String())
-	localConn, err := net.Dial("tcp", t.Local.String())
+	log.Printf("Registering local tcp forward on %v", t.Local.HostPort)
+	localConn, err := net.Dial("tcp", t.Local.HostPort)
 	if err != nil {
 		log.Fatalf("local: unable to register tcp forward: %v", err)
 	}

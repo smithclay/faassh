@@ -1,9 +1,5 @@
 package main
 
-// Originally from: https://gist.github.com/jpillora/b480fde82bff51a06238
-// Port forwarding from: https://gist.github.com/ir4y/11146415
-// and https://gist.github.com/sohlich/d8fb946f30a38d5a19f960a03ec1d740
-
 import (
 	"flag"
 	"net"
@@ -14,7 +10,12 @@ import (
 )
 
 var (
-	sshPort        = flag.String("port", "2200", "Port number to listen on")
+	sshdPort           = flag.String("port", "2200", "Port number for the ssh server to listen on")
+	jumpHost           = flag.String("jh", "localhost", "Jump host")
+	jumpHostPort       = flag.String("jh-port", "22", "Jump host SSH port number")
+	jumpHostUser       = flag.String("jh-user", "ec2-user", "Jump host SSH user")
+	jumpHostTunnelPort = flag.String("tunnel-port", "5001", "Jump host tunnel port")
+
 	hostPrivateKey = flag.String("i", "id_rsa", "Path to RSA host private key")
 )
 
@@ -24,21 +25,19 @@ func hostKeyCallback(hostname string, remote net.Addr, key ssh.PublicKey) error 
 
 func main() {
 	flag.Parse()
+
 	// Create SSH Tunnel
 	localEndpoint := &tunnel.Endpoint{
-		Host: "127.0.0.1",
-		Port: *sshPort,
+		HostPort: net.JoinHostPort("127.0.0.1", *sshdPort),
 	}
 
 	serverEndpoint := &tunnel.Endpoint{
-		Host: "127.0.0.1",
-		User: "csmith",
-		Port: "22",
+		HostPort: net.JoinHostPort(*jumpHost, *jumpHostPort),
+		User:     *jumpHostUser,
 	}
 
 	remoteEndpoint := &tunnel.Endpoint{
-		Host: "127.0.0.1",
-		Port: "5001",
+		HostPort: net.JoinHostPort("127.0.0.1", *jumpHostTunnelPort),
 	}
 
 	// Only key authentication is supported at this point.
@@ -58,11 +57,12 @@ func main() {
 	}
 	go t.Start()
 
+	// Create SSH Server with Dumb Terminal
 	s := &server.SecureServer{
 		User:     "foo",
 		Password: "bar",
 		HostKey:  *hostPrivateKey,
-		Port:     *sshPort,
+		Port:     *sshdPort,
 	}
 	s.Start()
 }
