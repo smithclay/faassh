@@ -7,8 +7,8 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
-	"os"
 	"os/exec"
+	"sync"
 	"syscall"
 	"unsafe"
 
@@ -109,11 +109,11 @@ func (s *SecureServer) handleChannel(newChannel ssh.NewChannel) {
 	}
 
 	// Fire up bash for this session
-	bash := exec.Command("bash")
-	/*stdin, err := bash.StdinPipe()
+	bash := exec.Command("bash", "-i")
+	stdin, err := bash.StdinPipe()
 	if err != nil {
 		log.Fatal(err)
-	}*/
+	}
 
 	stdout, err := bash.StdoutPipe()
 	if err != nil {
@@ -130,10 +130,11 @@ func (s *SecureServer) handleChannel(newChannel ssh.NewChannel) {
 		log.Printf("Session closed")
 	}
 
-	//connection.Write([]byte("Welcome to Lambda Shell!\n"))
+	connection.Write([]byte("Welcome to Lambda Shell!\n"))
+	connection.Write([]byte("> "))
 
 	//pipe session to bash and visa-versa
-	/*var once sync.Once
+	var once sync.Once
 	go func() {
 		io.Copy(connection, stdout)
 		once.Do(close)
@@ -141,8 +142,7 @@ func (s *SecureServer) handleChannel(newChannel ssh.NewChannel) {
 	go func() {
 		io.Copy(stdin, connection)
 		once.Do(close)
-	}()*/
-	go io.Copy(os.Stdout, stdout)
+	}()
 
 	// Start bash command
 	log.Print("Starting bash...")
