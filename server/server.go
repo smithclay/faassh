@@ -7,12 +7,11 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
+	"os"
 	"os/exec"
-	"sync"
 	"syscall"
 	"unsafe"
 
-	"github.com/kr/pty"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -111,6 +110,15 @@ func (s *SecureServer) handleChannel(newChannel ssh.NewChannel) {
 
 	// Fire up bash for this session
 	bash := exec.Command("bash")
+	/*stdin, err := bash.StdinPipe()
+	if err != nil {
+		log.Fatal(err)
+	}*/
+
+	stdout, err := bash.StdoutPipe()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// Prepare teardown function
 	close := func() {
@@ -122,47 +130,67 @@ func (s *SecureServer) handleChannel(newChannel ssh.NewChannel) {
 		log.Printf("Session closed")
 	}
 
-	// Allocate a terminal for this channel
-	log.Print("Creating pty...")
-	bashf, err := pty.Start(bash)
+	//connection.Write([]byte("Welcome to Lambda Shell!\n"))
+
+	//pipe session to bash and visa-versa
+	/*var once sync.Once
+	go func() {
+		io.Copy(connection, stdout)
+		once.Do(close)
+	}()
+	go func() {
+		io.Copy(stdin, connection)
+		once.Do(close)
+	}()*/
+	go io.Copy(os.Stdout, stdout)
+
+	// Start bash command
+	log.Print("Starting bash...")
+	err = bash.Start()
 	if err != nil {
-		log.Printf("Could not start pty (%s)", err)
+		log.Printf("Could not start (%s)", err)
 		close()
 		return
 	}
 
-	//pipe session to bash and visa-versa
-	var once sync.Once
-	go func() {
-		io.Copy(connection, bashf)
-		once.Do(close)
-	}()
-	go func() {
-		io.Copy(bashf, connection)
-		once.Do(close)
-	}()
-
 	// Sessions have out-of-band requests such as "shell", "pty-req" and "env"
+	// Good reference: https://github.com/ilowe/cmd/blob/72efdd2f2e6192e86adf67703a6f54b8bf3afc0c/sshpit/main.go
 	go func() {
 		for req := range requests {
+			log.Printf("out-of-band request: %v [len: %v]\n", req.Type, len(req.Payload))
+			ok := false
+
 			switch req.Type {
+			case "env":
+				ok = true
 			case "shell":
 				// We only accept the default shell
 				// (i.e. no command in the Payload)
 				if len(req.Payload) == 0 {
-					req.Reply(true, nil)
+					ok = true
 				}
+			case "exec":
+				// TODO: support command execution
+				ok = false
 			case "pty-req":
-				termLen := req.Payload[3]
-				w, h := parseDims(req.Payload[termLen+4:])
-				SetWinsize(bashf.Fd(), w, h)
+				//termLen := req.Payload[3]
+				//w, h := parseDims(req.Payload[termLen+4:])
+				//SetWinsize(bashf.Fd(), w, h)
 				// Responding true (OK) here will let the client
 				// know we have a pty ready for input
-				req.Reply(true, nil)
+				ok = true
 			case "window-change":
-				w, h := parseDims(req.Payload)
-				SetWinsize(bashf.Fd(), w, h)
+				//w, h := parseDims(req.Payload)
+				//SetWinsize(bashf.Fd(), w, h)
+			default:
+				log.Printf("unknown SSH request %v %v", req.Type, string(req.Payload))
 			}
+
+			if !ok {
+				log.Printf("declining %s request...\n", req.Type)
+			}
+
+			req.Reply(ok, nil)
 		}
 	}()
 }

@@ -27,11 +27,11 @@ func main() {
 	// Create SSH Tunnel
 	localEndpoint := &tunnel.Endpoint{
 		Host: "127.0.0.1",
-		Port: "3000",
+		Port: *sshPort,
 	}
 
 	serverEndpoint := &tunnel.Endpoint{
-		Host: "52.42.5.62",
+		Host: "172.31.24.53",
 		User: "ec2-user",
 		Port: "22",
 	}
