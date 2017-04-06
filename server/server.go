@@ -1,18 +1,16 @@
 package server
 
 import (
-	"encoding/binary"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"net"
 	"os/exec"
-	"sync"
-	"syscall"
-	"unsafe"
+	"strings"
 
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 type SecureServer struct {
@@ -108,110 +106,80 @@ func (s *SecureServer) handleChannel(newChannel ssh.NewChannel) {
 		return
 	}
 
-	// Fire up bash for this session
-	bash := exec.Command("bash", "-i")
-	stdin, err := bash.StdinPipe()
+	oldState, err := terminal.MakeRaw(0)
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer terminal.Restore(0, oldState)
 
-	stdout, err := bash.StdoutPipe()
-	if err != nil {
-		log.Fatal(err)
-	}
+	// Terminal creation code inspired by this:
+	// https://github.com/antha-lang/antha/blob/master/bvendor/golang.org/x/net/http2/h2i/h2i.go
+	t := terminal.NewTerminal(connection, "λ > ")
+	go func() {
+		for {
+			line, err := t.ReadLine()
+			if err == io.EOF {
+				return
+			}
+			if err != nil {
+				log.Printf("terminal.ReadLine: %v", err)
+			}
+			f := strings.Fields(line)
+			if len(f) == 0 {
+				continue
+			}
 
-	// Prepare teardown function
-	close := func() {
-		connection.Close()
-		_, err := bash.Process.Wait()
-		if err != nil {
-			log.Printf("Failed to exit bash (%s)", err)
+			if f[0] == "exit" {
+				// TODO: close session
+				connection.Close()
+				return
+			}
+
+			cmd := exec.Command(f[0], f[1:]...)
+			output, err := cmd.CombinedOutput()
+			if err != nil {
+				fmt.Fprintf(t, "%v\n", err)
+				continue
+			}
+
+			fmt.Fprintf(t, string(output))
+
 		}
-		log.Printf("Session closed")
-	}
-
-	connection.Write([]byte("Welcome to Lambda Shell!\n"))
-	connection.Write([]byte("> "))
-
-	//pipe session to bash and visa-versa
-	var once sync.Once
-	go func() {
-		io.Copy(connection, stdout)
-		once.Do(close)
-	}()
-	go func() {
-		io.Copy(stdin, connection)
-		once.Do(close)
 	}()
 
-	// Start bash command
-	log.Print("Starting bash...")
-	err = bash.Start()
-	if err != nil {
-		log.Printf("Could not start (%s)", err)
-		close()
-		return
-	}
+	t.Write([]byte("Welcome to Lambda Shell!\n"))
 
 	// Sessions have out-of-band requests such as "shell", "pty-req" and "env"
 	// Good reference: https://github.com/ilowe/cmd/blob/72efdd2f2e6192e86adf67703a6f54b8bf3afc0c/sshpit/main.go
 	go func() {
+		var hasShell bool
 		for req := range requests {
-			log.Printf("out-of-band request: %v [len: %v]\n", req.Type, len(req.Payload))
-			ok := false
-
+			var width, height int
+			var ok bool
 			switch req.Type {
-			case "env":
-				ok = true
 			case "shell":
-				// We only accept the default shell
-				// (i.e. no command in the Payload)
-				if len(req.Payload) == 0 {
+				if !hasShell {
 					ok = true
+					hasShell = true
 				}
-			case "exec":
-				// TODO: support command execution
-				ok = false
 			case "pty-req":
-				//termLen := req.Payload[3]
-				//w, h := parseDims(req.Payload[termLen+4:])
-				//SetWinsize(bashf.Fd(), w, h)
-				// Responding true (OK) here will let the client
-				// know we have a pty ready for input
-				ok = true
+				width, height, ok = parsePtyReq(req.Payload)
+				if ok {
+					err := t.SetSize(width, height)
+					ok = err == nil
+				}
 			case "window-change":
-				//w, h := parseDims(req.Payload)
-				//SetWinsize(bashf.Fd(), w, h)
-			default:
-				log.Printf("unknown SSH request %v %v", req.Type, string(req.Payload))
+				width, height, ok = parseWindowChangeReq(req.Payload)
+				if ok {
+					err := t.SetSize(width, height)
+					ok = err == nil
+				}
 			}
 
-			if !ok {
-				log.Printf("declining %s request...\n", req.Type)
+			if req.WantReply {
+				req.Reply(ok, nil)
 			}
-
-			req.Reply(ok, nil)
 		}
+
 	}()
-}
-
-// parseDims extracts terminal dimensions (width x height) from the provided buffer.
-func parseDims(b []byte) (uint32, uint32) {
-	w := binary.BigEndian.Uint32(b)
-	h := binary.BigEndian.Uint32(b[4:])
-	return w, h
-}
-
-// Winsize stores the Height and Width of a terminal.
-type Winsize struct {
-	Height uint16
-	Width  uint16
-	x      uint16 // unused
-	y      uint16 // unused
-}
-
-// SetWinsize sets the size of the given pty.
-func SetWinsize(fd uintptr, w, h uint32) {
-	ws := &Winsize{Width: uint16(w), Height: uint16(h)}
-	syscall.Syscall(syscall.SYS_IOCTL, fd, uintptr(syscall.TIOCSWINSZ), uintptr(unsafe.Pointer(ws)))
 }

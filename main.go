@@ -31,8 +31,8 @@ func main() {
 	}
 
 	serverEndpoint := &tunnel.Endpoint{
-		Host: "172.31.24.53",
-		User: "ec2-user",
+		Host: "127.0.0.1",
+		User: "csmith",
 		Port: "22",
 	}
 
