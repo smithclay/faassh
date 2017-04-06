@@ -106,12 +106,6 @@ func (s *SecureServer) handleChannel(newChannel ssh.NewChannel) {
 		return
 	}
 
-	oldState, err := terminal.MakeRaw(0)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer terminal.Restore(0, oldState)
-
 	// Terminal creation code inspired by this:
 	// https://github.com/antha-lang/antha/blob/master/bvendor/golang.org/x/net/http2/h2i/h2i.go
 	t := terminal.NewTerminal(connection, "λ > ")
@@ -162,6 +156,8 @@ func (s *SecureServer) handleChannel(newChannel ssh.NewChannel) {
 					ok = true
 					hasShell = true
 				}
+			case "exec":
+				ok = true
 			case "pty-req":
 				width, height, ok = parsePtyReq(req.Payload)
 				if ok {

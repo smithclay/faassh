@@ -24,7 +24,7 @@ type SSHtunnel struct {
 }
 
 func (t *SSHtunnel) Start() error {
-	log.Printf("Creating tunnel to %v...", t.Server.HostPort)
+	log.Printf("Creating tunnel to %v with user %v...", t.Server.HostPort, t.Config.User)
 	conn, err := ssh.Dial("tcp", t.Server.HostPort, t.Config)
 	if err != nil {
 		log.Fatalf("unable to connect to remote server: %v", err)
