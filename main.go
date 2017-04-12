@@ -4,8 +4,8 @@ import (
 	"flag"
 	"net"
 
-	"github.com/smithclay/tiny-ssh/server"
-	"github.com/smithclay/tiny-ssh/tunnel"
+	"github.com/smithclay/faassh/server"
+	"github.com/smithclay/faassh/tunnel"
 	"golang.org/x/crypto/ssh"
 )
 
