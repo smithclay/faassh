@@ -14,7 +14,7 @@ var (
 	jumpHost           = flag.String("jh", "localhost", "Jump host")
 	jumpHostPort       = flag.String("jh-port", "22", "Jump host SSH port number")
 	jumpHostUser       = flag.String("jh-user", "ec2-user", "Jump host SSH user")
-	jumpHostTunnelPort = flag.String("tunnel-port", "5001", "Jump host tunnel port")
+	jumpHostTunnelPort = flag.String("tunnel-port", "0", "Jump host tunnel port")
 
 	hostPrivateKey = flag.String("i", "id_rsa", "Path to RSA host private key")
 )
@@ -36,6 +36,7 @@ func main() {
 		User:     *jumpHostUser,
 	}
 
+	// With the '0' default, an open port on the host will be chosen automatically.
 	remoteEndpoint := &tunnel.Endpoint{
 		HostPort: net.JoinHostPort("127.0.0.1", *jumpHostTunnelPort),
 	}

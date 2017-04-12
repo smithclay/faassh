@@ -128,8 +128,7 @@ func (s *SecureServer) handleChannel(newChannel ssh.NewChannel) {
 				connection.Close()
 				return
 			}
-
-			cmd := exec.Command(f[0], f[1:]...)
+			cmd := exec.Command("bash", append([]string{"-c"}, f...)...)
 			output, err := cmd.CombinedOutput()
 			if err != nil {
 				fmt.Fprintf(t, "%v\n", err)
@@ -143,39 +142,40 @@ func (s *SecureServer) handleChannel(newChannel ssh.NewChannel) {
 
 	t.Write([]byte("Welcome to Lambda Shell!\n"))
 
-	// Sessions have out-of-band requests such as "shell", "pty-req" and "env"
-	// Good reference: https://github.com/ilowe/cmd/blob/72efdd2f2e6192e86adf67703a6f54b8bf3afc0c/sshpit/main.go
-	go func() {
-		var hasShell bool
-		for req := range requests {
-			var width, height int
-			var ok bool
-			switch req.Type {
-			case "shell":
-				if !hasShell {
-					ok = true
-					hasShell = true
-				}
-			case "exec":
-				ok = true
-			case "pty-req":
-				width, height, ok = parsePtyReq(req.Payload)
-				if ok {
-					err := t.SetSize(width, height)
-					ok = err == nil
-				}
-			case "window-change":
-				width, height, ok = parseWindowChangeReq(req.Payload)
-				if ok {
-					err := t.SetSize(width, height)
-					ok = err == nil
-				}
-			}
+	go s.processRequests(t, requests)
+}
 
-			if req.WantReply {
-				req.Reply(ok, nil)
+// Sessions have out-of-band requests such as "shell", "pty-req" and "env"
+// Good reference: https://github.com/ilowe/cmd/blob/72efdd2f2e6192e86adf67703a6f54b8bf3afc0c/sshpit/main.go
+func (s *SecureServer) processRequests(t *terminal.Terminal, requests <-chan *ssh.Request) {
+	var hasShell bool
+	for req := range requests {
+		var width, height int
+		var ok bool
+		switch req.Type {
+		case "shell":
+			if !hasShell {
+				ok = true
+				hasShell = true
+			}
+		case "exec":
+			ok = true
+		case "pty-req":
+			width, height, ok = parsePtyReq(req.Payload)
+			if ok {
+				err := t.SetSize(width, height)
+				ok = err == nil
+			}
+		case "window-change":
+			width, height, ok = parseWindowChangeReq(req.Payload)
+			if ok {
+				err := t.SetSize(width, height)
+				ok = err == nil
 			}
 		}
 
-	}()
+		if req.WantReply {
+			req.Reply(ok, nil)
+		}
+	}
 }

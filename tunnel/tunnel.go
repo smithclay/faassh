@@ -37,6 +37,7 @@ func (t *SSHtunnel) Start() error {
 		log.Fatalf("unable to register tcp forward: %v", err)
 	}
 	defer remoteListener.Close()
+	log.Printf("TCP forward listening on: %v", remoteListener.Addr())
 
 	for {
 		r, err := remoteListener.Accept()
