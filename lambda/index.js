@@ -4,7 +4,7 @@ const exec = require('child_process').exec;
 
 exports.handler = (event, context, callback) => {
     const port = process.env.PORT || '2200';
-    const child = exec(`./tiny-ssh -port ${port} -jh 172.31.24.53 -jh-user ec2-user -tunnel-port 5001`, (error) => {
+    const child = exec(`./faassh -port ${port} -jh 0.tcp.ngrok.io -jh-user csmith -jh-port 16781 -tunnel-port 5001`, (error) => {
         // Resolve with result of process
         //callback(error, 'Process complete!');
     });

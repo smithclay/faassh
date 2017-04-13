@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"net"
+	"time"
 
 	"github.com/smithclay/faassh/server"
 	"github.com/smithclay/faassh/tunnel"
@@ -47,6 +48,7 @@ func main() {
 		Auth: []ssh.AuthMethod{
 			tunnel.SSHAgent(*hostPrivateKey),
 		},
+		Timeout:         time.Second * 10,
 		HostKeyCallback: hostKeyCallback,
 	}
 
