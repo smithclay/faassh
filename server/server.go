@@ -18,6 +18,16 @@ type SecureServer struct {
 	Password string
 	HostKey  string
 	Port     string
+	sshConn  *ssh.ServerConn
+}
+
+func (s *SecureServer) Stop() error {
+	// TODO: cleanup running function
+	if s.sshConn != nil {
+		err := s.sshConn.Conn.Close()
+		return err
+	}
+	return nil
 }
 
 func (s *SecureServer) Start() error {
@@ -68,6 +78,9 @@ func (s *SecureServer) Start() error {
 		}
 		// Before use, a handshake must be performed on the incoming net.Conn.
 		sshConn, chans, reqs, err := ssh.NewServerConn(tcpConn, config)
+
+		s.sshConn = sshConn
+
 		if err != nil {
 			log.Printf("Failed to handshake (%s)", err)
 			continue
@@ -136,7 +149,6 @@ func (s *SecureServer) handleChannel(newChannel ssh.NewChannel) {
 			}
 
 			fmt.Fprintf(t, string(output))
-
 		}
 	}()
 

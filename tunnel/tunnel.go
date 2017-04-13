@@ -16,11 +16,16 @@ type Endpoint struct {
 }
 
 type SSHtunnel struct {
-	Local  *Endpoint
-	Server *Endpoint
-	Remote *Endpoint
+	Local        *Endpoint
+	Server       *Endpoint
+	Remote       *Endpoint
+	tunnelClient *ssh.Client
+	Config       *ssh.ClientConfig
+}
 
-	Config *ssh.ClientConfig
+func (t *SSHtunnel) Stop() error {
+	err := t.tunnelClient.Close()
+	return err
 }
 
 func (t *SSHtunnel) Start() error {
@@ -30,6 +35,8 @@ func (t *SSHtunnel) Start() error {
 		log.Fatalf("unable to connect to remote server: %v", err)
 	}
 	defer conn.Close()
+
+	t.tunnelClient = conn
 
 	log.Printf("Registering tcp forward on %v", t.Remote.HostPort)
 	remoteListener, err := conn.Listen("tcp", t.Remote.HostPort)

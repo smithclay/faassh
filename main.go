@@ -2,7 +2,11 @@ package main
 
 import (
 	"flag"
+	"log"
 	"net"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/smithclay/faassh/server"
@@ -51,15 +55,6 @@ func main() {
 		Timeout:         time.Second * 10,
 		HostKeyCallback: hostKeyCallback,
 	}
-
-	t := &tunnel.SSHtunnel{
-		Config: sshTunnelConfig,
-		Local:  localEndpoint,
-		Server: serverEndpoint,
-		Remote: remoteEndpoint,
-	}
-	go t.Start()
-
 	// Create SSH Server with Dumb Terminal
 	s := &server.SecureServer{
 		User:     "foo",
@@ -67,5 +62,35 @@ func main() {
 		HostKey:  *hostPrivateKey,
 		Port:     *sshdPort,
 	}
+
+	t := &tunnel.SSHtunnel{
+		Config: sshTunnelConfig,
+		Local:  localEndpoint,
+		Server: serverEndpoint,
+		Remote: remoteEndpoint,
+	}
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT)
+	go func() {
+		sig := <-sigs
+		log.Printf("%v: Attempting to stop server and close tunnel...", sig)
+
+		sErr := s.Stop()
+		if sErr != nil {
+			log.Printf("Could not stop ssh server: %v", sErr)
+		}
+		tErr := t.Stop()
+		if tErr != nil {
+			log.Printf("Could not stop tunnel: %v", tErr)
+		}
+
+		if tErr != nil || sErr != nil {
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}()
+
+	go t.Start()
 	s.Start()
 }
