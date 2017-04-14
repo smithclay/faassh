@@ -1,38 +1,39 @@
-'use strict';
+// Inspired from Apex: https://github.com/apex/apex/blob/master/shim/index.js
+console.log('[shim] start function');
+var child = require('child_process');
 
-console.log('start function');
+const port = process.env.PORT || '2200';
+const jh = process.env.JUMP_HOST || '0.tcp.ngrok.io';
+const jhPort = process.env.JUMP_HOST_PORT || '15303';
+const proc = child.spawn('./faassh',
+    `-port ${port} -jh ${jh} -jh-user csmith -jh-port ${jhPort} -tunnel-port 5001`.split(' '));
 
-const exec = require('child_process').exec;
+proc.on('error', function(err){
+  console.error('[shim] error: %s', err)
+  process.exit(1)
+})
+
+proc.on('exit', function(code, signal){
+  console.error('[shim] exit: code=%s signal=%s', code, signal)
+  process.exit(1)
+});
+
+proc.stderr.on('data', function(line){
+  console.error('[faassh] data from faassh: `%s`', line)
+});
+
+proc.stdout.on('data', function(line){
+  console.log('[faassh] data from faassh: `%s`', line)
+});
 
 exports.handler = (event, context, callback) => {
-    const port = process.env.PORT || '2200';
-    const jh = process.env.JUMP_HOST || '0.tcp.ngrok.io';
-    const jhPort = process.env.JUMP_HOST_PORT || '15303';
-    const child = exec(`./faassh -port ${port} -jh ${jh} -jh-user csmith -jh-port ${jhPort} -tunnel-port 5001`);
-
+    context.callbackWaitsForEmptyEventLoop = false;
+    // TODO: Don't kill the process, just close the session.
     setInterval(() => {
         var timeRemaining = context.getRemainingTimeInMillis();
         if (timeRemaining < 2000) {
             console.log(`Less than ${timeRemaining}ms left before timeout. Shutting down...`);
-            child.kill('SIGINT');
+            proc.kill('SIGINT');
         }
     }, 500);
-
-    child.on('error', (error) => {
-        console.log(`error recieved from child process: ${error}`);
-        return callback(error, null);
-    });
-
-    // TODO: this doesn't seem to get called
-    child.on('exit', (code, signal) => {
-        console.log(`exit signal recieved from child process: ${code} ${signal}`);
-        if (code !== 0) {
-            return callback(code, null);
-        }
-        callback(null, code);
-    });
-
-    // Log process stdout and stderr
-    child.stdout.on('data', console.log);
-    child.stderr.on('data', console.error);
 };
