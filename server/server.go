@@ -18,15 +18,10 @@ type SecureServer struct {
 	Password string
 	HostKey  string
 	Port     string
-	sshConn  *ssh.ServerConn
 }
 
 func (s *SecureServer) Stop() error {
-	// TODO: cleanup running function
-	if s.sshConn != nil {
-		err := s.sshConn.Conn.Close()
-		return err
-	}
+	// TODO: Close all connections
 	return nil
 }
 
@@ -78,9 +73,6 @@ func (s *SecureServer) Start() error {
 		}
 		// Before use, a handshake must be performed on the incoming net.Conn.
 		sshConn, chans, reqs, err := ssh.NewServerConn(tcpConn, config)
-
-		s.sshConn = sshConn
-
 		if err != nil {
 			log.Printf("Failed to handshake (%s)", err)
 			continue
@@ -89,15 +81,11 @@ func (s *SecureServer) Start() error {
 		log.Printf("New SSH connection from %s (%s)", sshConn.RemoteAddr(), sshConn.ClientVersion())
 		// Discard all global out-of-band Requests
 		go ssh.DiscardRequests(reqs)
-		// Accept all channels
-		go s.handleChannels(chans)
-	}
-}
 
-func (s *SecureServer) handleChannels(chans <-chan ssh.NewChannel) {
-	// Service the incoming Channel channel in go routine
-	for newChannel := range chans {
-		go s.handleChannel(newChannel)
+		// Accept all channels
+		for newChannel := range chans {
+			go s.handleChannel(newChannel)
+		}
 	}
 }
 
@@ -119,6 +107,7 @@ func (s *SecureServer) handleChannel(newChannel ssh.NewChannel) {
 		return
 	}
 
+	// TODO: extract into own file
 	// Terminal creation code inspired by this:
 	// https://github.com/antha-lang/antha/blob/master/bvendor/golang.org/x/net/http2/h2i/h2i.go
 	t := terminal.NewTerminal(connection, "λ > ")
@@ -152,6 +141,7 @@ func (s *SecureServer) handleChannel(newChannel ssh.NewChannel) {
 		}
 	}()
 
+	// TODO: ASCII art, version number
 	t.Write([]byte("Welcome to Lambda Shell!\n"))
 
 	go s.processRequests(t, requests)

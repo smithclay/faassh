@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"log"
 	"net"
@@ -26,6 +27,12 @@ var (
 
 func hostKeyCallback(hostname string, remote net.Addr, key ssh.PublicKey) error {
 	return nil
+}
+
+func readStdin(s *bufio.Scanner) {
+	for s.Scan() {
+		log.Println("line", s.Text())
+	}
 }
 
 func main() {
@@ -69,6 +76,9 @@ func main() {
 		Server: serverEndpoint,
 		Remote: remoteEndpoint,
 	}
+
+	scanner := bufio.NewScanner(os.Stdin)
+	go readStdin(scanner)
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT)
