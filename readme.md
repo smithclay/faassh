@@ -5,7 +5,7 @@
 
 This is just for fun. It's a simple SSH server and tunnel-er that allows you to SSH into a running lambda function—until it times out.
 
-Developed for my [dotScale](https://dotscale.io) 2017 talk, "Searching for the Server in Serverless". Slides [here](speakerdeck.com/smithclay/searching-for-the-server-in-serverless).
+Developed for my [dotScale](https://dotscale.io) 2017 talk, "Searching for the Server in Serverless". Slides [here](http://speakerdeck.com/smithclay/searching-for-the-server-in-serverless).
 
 ## usage
 
