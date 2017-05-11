@@ -5,6 +5,8 @@
 
 This is just for fun. It's a simple SSH server and tunnel-er that allows you to SSH into a running lambda function—until it times out.
 
+Developed for my [dotScale](https://dotscale.io) 2017 talk, "Searching for the Server in Serverless". Slides [here](http://speakerdeck.com/smithclay/searching-for-the-server-in-serverless).
+
 ## usage
 
 ```
@@ -18,7 +20,12 @@ See the example node.js lambda function in the `lambda/` directory.
 * Generate RSA keys for the Lambda function and bundle inside the `lambda` directory (`ssh-keygen -t rsa -f ./id_rsa`)
 * Set the envionment variables to point to your SSH jump host with the correct username.
 
-If you'd like to test it on your local laptop that's behind (hopefully) a NAT/firewall, I like the TCP forwarding available on [ngrok](https://ngrok.com/).
+If you'd like to test it on your local laptop that's behind (hopefully) a NAT/firewall, I like the TCP forwarding available on [ngrok](https://ngrok.com/). You can create a tunnel to your local SSH server for the other end of the tunnel endpoint, you just run: `ngrok tcp 22`.
+
+## other interesting/related projects
+
+* [lambdash](https://github.com/alestic/lambdash) - another approach for running commands in Lambda
+* [awslambdaproxy](https://github.com/dan-v/awslambdaproxy) - An AWS Lambda powered HTTP/SOCKS web proxy
 
 ## todo
 
