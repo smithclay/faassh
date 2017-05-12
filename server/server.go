@@ -133,6 +133,7 @@ func (s *SecureServer) handleChannel(newChannel ssh.NewChannel) {
 			cmd := exec.Command("bash", append([]string{"-c"}, strings.Join(f[:], " "))...)
 			output, err := cmd.CombinedOutput()
 			if err != nil {
+				fmt.Fprintf(t, string(output))
 				fmt.Fprintf(t, "%v\n", err)
 				continue
 			}
