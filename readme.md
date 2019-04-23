@@ -7,6 +7,16 @@ This is just for fun. It's a simple SSH server and tunnel-er that allows you to 
 
 Developed for my [dotScale](https://dotscale.io) 2017 talk, "Searching for the Server in Serverless". Slides [here](http://speakerdeck.com/smithclay/searching-for-the-server-in-serverless).
 
+## building
+
+This project uses the [Serverless Application Model](https://aws.amazon.com/serverless/sam/) for packaging and deploying.
+
+```sh
+   $ sam build
+   $ sam package --s3-bucket <yourbucket> > packaged.yaml
+   $ sam deploy --template-file packaged.yaml --stack-name <yourstack> --capabilities CAPABILITY_IAM
+```
+
 ## usage
 
 ```
