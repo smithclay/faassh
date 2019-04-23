@@ -5,8 +5,10 @@ var child = require('child_process');
 const port = process.env.PORT || '2200';
 const jh = process.env.JUMP_HOST || '0.tcp.ngrok.io';
 const jhPort = process.env.JUMP_HOST_PORT || '15303';
+const jhUser = process.env.JUMP_HOST_USER|| 'csmith';
+
 const proc = child.spawn('./faassh',
-    `-port ${port} -jh ${jh} -jh-user csmith -jh-port ${jhPort} -tunnel-port 5001`.split(' '));
+    `-port ${port} tunnel -jh ${jh} -jh-user ${jhUser} -jh-port ${jhPort} -tunnel-port 5001`.split(' '));
 
 proc.on('error', function(err){
   console.error('[shim] error: %s', err)

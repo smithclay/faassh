@@ -1,9 +1,8 @@
 package main
 
 import (
-	"bufio"
 	"flag"
-	"log"
+	"fmt"
 	"net"
 	"os"
 	"time"
@@ -14,25 +13,22 @@ import (
 )
 
 var (
-	sshdPort           = flag.String("port", "2200", "Port number for ssh server (non-priviliged)")
-	jumpHost           = flag.String("jh", "localhost", "Jump host")
-	jumpHostPort       = flag.String("jh-port", "22", "Jump host SSH port number")
-	jumpHostUser       = flag.String("jh-user", "ec2-user", "Jump host SSH user")
-	jumpHostTunnelPort = flag.String("tunnel-port", "0", "Jump host tunnel port")
+	tunnelCommand = flag.NewFlagSet("tunnel", flag.ExitOnError)
+)
 
-	hostPrivateKey = flag.String("i", "id_rsa", "Path to RSA host private key")
+var (
+	sshdPort           = flag.String("port", "2200", "Port number for ssh server (non-priviliged)")
+	hostPrivateKey     = flag.String("i", "", "Path to RSA host private key")
+	jumpHost           = tunnelCommand.String("jh", "localhost", "Jump host")
+	jumpHostPort       = tunnelCommand.String("jh-port", "22", "Jump host SSH port number")
+	jumpHostUser       = tunnelCommand.String("jh-user", "ec2-user", "Jump host SSH user")
+	jumpHostTunnelPort = tunnelCommand.String("tunnel-port", "0", "Jump host tunnel port")
 )
 
 // Only key authentication is supported at this point.
 // This will accept connections from any remote host.
 func hostKeyCallback(hostname string, remote net.Addr, key ssh.PublicKey) error {
 	return nil
-}
-
-func readStdin(s *bufio.Scanner) {
-	for s.Scan() {
-		log.Println("line", s.Text())
-	}
 }
 
 func createTunnel(localPort string, jumpHost string, jumpHostPort string, jumpHostUser string, jumpHostTunnelPort string) *tunnel.SSHtunnel {
@@ -76,6 +72,11 @@ func createTunnel(localPort string, jumpHost string, jumpHostPort string, jumpHo
 func main() {
 	flag.Parse()
 
+	if *hostPrivateKey == "" {
+		fmt.Println("Error: Please supply the host private key using the -i option.")
+		os.Exit(1)
+	}
+
 	// Create SSH Server with Dumb Terminal
 	s := &server.SecureServer{
 		User:     "foo",
@@ -84,31 +85,10 @@ func main() {
 		Port:     *sshdPort,
 	}
 
-	scanner := bufio.NewScanner(os.Stdin)
-	go readStdin(scanner)
+	if tunnelCommand.Parsed() {
+		t := createTunnel(*sshdPort, *jumpHost, *jumpHostPort, *jumpHostUser, *jumpHostTunnelPort)
+		go t.Start()
+	}
 
-	// TODO: SIGINT closes all tunnels
-	/*sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT)
-	go func() {
-		sig := <-sigs
-		log.Printf("%v: Attempting to stop server and close tunnel...", sig)
-
-		sErr := s.Stop()
-		if sErr != nil {
-			log.Printf("Could not stop ssh server: %v", sErr)
-		}
-		tErr := t.Stop()
-		if tErr != nil {
-			log.Printf("Could not stop tunnel: %v", tErr)
-		}
-
-		if tErr != nil || sErr != nil {
-			os.Exit(1)
-		}
-		os.Exit(0)
-	}()*/
-	t := createTunnel(*sshdPort, *jumpHost, *jumpHostPort, *jumpHostUser, *jumpHostTunnelPort)
-	go t.Start()
 	s.Start()
 }
