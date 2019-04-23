@@ -2,3 +2,5 @@
 id_rsa
 id_rsa.pub
 faassh
+.aws-sam
+packaged.yaml
